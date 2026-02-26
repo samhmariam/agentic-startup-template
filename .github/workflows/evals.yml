@@ -1,0 +1,54 @@
+name: Evals
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      min_score:
+        description: "Minimum passing score (0–1)"
+        default: "0.70"
+        required: false
+
+jobs:
+  evals:
+    name: Retrieval & Agent Output Evals
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Seed knowledge base
+        run: pnpm seed
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHROMA_PATH: ./__chroma__
+
+      - name: Run evals
+        run: pnpm evals
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHROMA_PATH: ./__chroma__
+          MIN_EVAL_SCORE: ${{ github.event.inputs.min_score || '0.70' }}
+
+      - name: Upload Chroma data (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chroma-data
+          path: ./__chroma__
+          retention-days: 3

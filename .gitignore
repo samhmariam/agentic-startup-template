@@ -1,0 +1,38 @@
+# --- Dependencies ---
+node_modules/
+.pnp
+.pnp.js
+
+# --- Build outputs ---
+dist/
+*.tsbuildinfo
+
+# --- Environment ---
+.env
+.env.local
+.env.*.local
+
+# --- ChromaDB local data ---
+__chroma__/
+chroma_data/
+
+# --- Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Test & coverage ---
+coverage/
+.vitest/
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+
+# --- OS ---
+.DS_Store
+Desktop.ini
