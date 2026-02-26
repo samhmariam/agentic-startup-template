@@ -142,3 +142,52 @@ describe("runFlywheel()", () => {
     ).rejects.toThrow("[flywheel] Audit failed");
   });
 });
+
+// ── HITL Approval Gate ────────────────────────────────────────────────────────
+
+describe("runFlywheel() — approveSpec gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("skips the gate when approveSpec is not provided", async () => {
+    const { executeSpec } = await import("../../src/core/agents/executor.js");
+    const { runFlywheel } = await import("../../src/core/flywheel.js");
+
+    await runFlywheel("Test brief");
+
+    // executor should have been called with the original spec
+    expect(executeSpec).toHaveBeenCalledWith(MOCK_SPEC);
+  });
+
+  it("calls approveSpec with the spec and passes the return value to executor", async () => {
+    const amendedSpec = { ...MOCK_SPEC, title: "Amended Title" };
+    const approveSpec = vi.fn().mockResolvedValue(amendedSpec);
+
+    const { executeSpec } = await import("../../src/core/agents/executor.js");
+    const { runFlywheel } = await import("../../src/core/flywheel.js");
+
+    const result = await runFlywheel("Test brief", { approveSpec });
+
+    expect(approveSpec).toHaveBeenCalledOnce();
+    expect(approveSpec).toHaveBeenCalledWith(MOCK_SPEC);
+    expect(executeSpec).toHaveBeenCalledWith(amendedSpec);
+    expect(result.spec).toEqual(MOCK_SPEC); // result.spec holds the original planned spec
+  });
+
+  it("aborts the run when approveSpec throws", async () => {
+    const approveSpec = vi.fn().mockRejectedValue(
+      new Error("[flywheel] Spec rejected by operator — run aborted."),
+    );
+
+    const { executeSpec } = await import("../../src/core/agents/executor.js");
+    const { runFlywheel } = await import("../../src/core/flywheel.js");
+
+    await expect(runFlywheel("Test brief", { approveSpec })).rejects.toThrow(
+      "Spec rejected by operator",
+    );
+
+    // Stage 3 must never have been reached
+    expect(executeSpec).not.toHaveBeenCalled();
+  });
+});

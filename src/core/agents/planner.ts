@@ -13,7 +13,7 @@ import { productArchitect } from "../../../.agentic/roles/product-architect.js";
 import { plannerTools } from "../../../.agentic/tools/index.js";
 import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { retrieve, retrieveMulti, formatAsContext } from "../context/retriever.js";
-import { parseTechSpec } from "../guardrails/schema-validator.js";
+import { parseTechSpecWithRetry } from "../guardrails/schema-validator.js";
 import type { TechSpec } from "../../../docs/schema/entities.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -37,16 +37,23 @@ export async function planFeature(brief: string): Promise<TechSpec> {
   console.log(`[planner] Retrieved ${contextDocs.length} context chunks`);
 
   // ── Stage 2b: Generate spec ────────────────────────────────────────────────
+  const systemPrompt = `${productArchitect.systemPrompt}\n\n${contextBlock}`;
+  const userPrompt = `Generate a TechSpec for the following feature brief:\n\n${brief}`;
+
   const { text } = await generateText({
     model: productArchitect.model,
     ...(productArchitect.maxSteps !== undefined ? { maxSteps: productArchitect.maxSteps } : {}),
     tools: plannerTools,
-    system: `${productArchitect.systemPrompt}\n\n${contextBlock}`,
-    prompt: `Generate a TechSpec for the following feature brief:\n\n${brief}`,
+    system: systemPrompt,
+    prompt: userPrompt,
   });
 
-  // ── Stage 2c: Validate at boundary ────────────────────────────────────────
-  const spec = parseTechSpec(text);
+  // ── Stage 2c: Validate at boundary (with self-correction) ─────────────────
+  const spec = await parseTechSpecWithRetry(text, {
+    model: productArchitect.model,
+    systemPrompt,
+    originalPrompt: userPrompt,
+  });
   console.log(`[planner] ✓ Spec: "${spec.title}" (${spec.acceptanceCriteria.length} criteria)`);
 
   return spec;

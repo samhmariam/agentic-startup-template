@@ -6,7 +6,7 @@
  */
 
 // ── Flywheel (main entry point) ───────────────────────────────────────────────
-export { runFlywheel } from "./flywheel.js";
+export { runFlywheel, createCliApprovalFn } from "./flywheel.js";
 export type { FlywheelOptions } from "./flywheel.js";
 
 // ── Agents ────────────────────────────────────────────────────────────────────
@@ -26,10 +26,15 @@ export type { RetrieveOptions } from "./context/retriever.js";
 export { sanitize, sanitizeWithReport, containsPii, PATTERNS } from "./guardrails/pii-filter.js";
 export {
   parseAgentOutput,
+  parseAgentOutputWithRetry,
   parseTechSpec,
+  parseTechSpecWithRetry,
   parseCodeArtifact,
+  parseCodeArtifactWithRetry,
   parseAuditReport,
+  parseAuditReportWithRetry,
 } from "./guardrails/schema-validator.js";
+export type { SelfCorrectionOptions } from "./guardrails/schema-validator.js";
 
 // ── Entities (re-exported from docs/schema for convenience) ──────────────────
 export type {

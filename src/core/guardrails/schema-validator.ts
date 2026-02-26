@@ -8,8 +8,14 @@
  *
  * If an LLM returns a malformed response, this module throws a structured error
  * with enough detail to debug without inspecting the raw LLM output directly.
+ *
+ * Self-correction: `parseAgentOutputWithRetry` feeds Zod validation issues back
+ * to the LLM and allows up to `maxRetries` (default: 1) correction attempts
+ * before throwing.
  */
 
+import { generateText } from "ai";
+import type { LanguageModelV1 } from "ai";
 import { type z, type ZodTypeAny } from "zod";
 import {
   AuditReportSchema,
@@ -66,6 +72,88 @@ export function parseAgentOutput<S extends ZodTypeAny>(
   return result.data;
 }
 
+// ── Self-correcting async variant ─────────────────────────────────────────────
+
+export interface SelfCorrectionOptions {
+  /** The LLM used to regenerate a corrected response. */
+  model: LanguageModelV1;
+  /** The system prompt that was used in the original generation call. */
+  systemPrompt: string;
+  /** The original user-facing prompt, so the LLM has full context when correcting. */
+  originalPrompt: string;
+  /** Maximum number of correction attempts (default: 1). */
+  maxRetries?: number;
+}
+
+/**
+ * Parse and validate LLM text output, retrying with structured Zod error
+ * feedback on validation failure.
+ *
+ * On each failed attempt the model receives:
+ *   - Its own previous (invalid) response
+ *   - A bullet-list of Zod validation issues
+ *   - The original task prompt for full context
+ *
+ * Returns the validated value as soon as a pass occurs; throws after
+ * `maxRetries` exhausted.
+ */
+export async function parseAgentOutputWithRetry<S extends ZodTypeAny>(
+  schema: S,
+  rawText: string,
+  label: string,
+  retryOpts: SelfCorrectionOptions,
+): Promise<z.output<S>> {
+  const { model, systemPrompt, originalPrompt, maxRetries = 1 } = retryOpts;
+  let lastText = rawText;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const cleaned = lastText
+      .replace(/^```(?:json|typescript|ts)?\n?/i, "")
+      .replace(/\n?```$/i, "")
+      .trim();
+
+    let parsed: unknown;
+    let issuesSummary: string | undefined;
+
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      issuesSummary = "Output was not valid JSON — ensure the response is a raw JSON object with no markdown.";
+    }
+
+    if (parsed !== undefined) {
+      const result = schema.safeParse(parsed);
+      if (result.success) return result.data;
+      issuesSummary = result.error.issues
+        .map((i) => `  • ${i.path.length > 0 ? i.path.join(".") : "(root)"}: ${i.message}`)
+        .join("\n");
+    }
+
+    if (attempt === maxRetries) {
+      throw new Error(
+        `[guardrail] ${label}: self-correction exhausted (${maxRetries} attempt(s)).\n` +
+          `Last validation issues:\n${issuesSummary ?? "unknown"}`,
+      );
+    }
+
+    console.warn(
+      `[guardrail] ${label}: attempt ${attempt + 1}/${maxRetries + 1} failed — requesting self-correction...`,
+    );
+
+    const correctionPrompt =
+      `Your previous response failed schema validation with these issues:\n\n${issuesSummary}\n\n` +
+      `Your previous response was:\n${lastText.slice(0, 1_500)}\n\n` +
+      `Original task:\n${originalPrompt}\n\n` +
+      `Produce corrected, valid JSON only — no markdown fences, no explanation.`;
+
+    const { text } = await generateText({ model, system: systemPrompt, prompt: correctionPrompt });
+    lastText = text;
+  }
+
+  // Unreachable — loop always returns or throws.
+  throw new Error(`[guardrail] ${label}: unreachable`);
+}
+
 // ── Typed convenience functions ───────────────────────────────────────────────
 
 /**
@@ -90,4 +178,39 @@ export function parseCodeArtifact(rawText: string): CodeArtifact {
  */
 export function parseAuditReport(rawText: string): AuditReport {
   return parseAgentOutput(AuditReportSchema, rawText, "AuditReport from auditor");
+}
+
+// ── Async self-correcting typed wrappers ──────────────────────────────────────
+
+/**
+ * `parseTechSpec` with LLM self-correction on validation failure.
+ * Pass the model and prompts from the Planning Agent call.
+ */
+export async function parseTechSpecWithRetry(
+  rawText: string,
+  opts: SelfCorrectionOptions,
+): Promise<TechSpec> {
+  return parseAgentOutputWithRetry(TechSpecSchema, rawText, "TechSpec from planner", opts);
+}
+
+/**
+ * `parseCodeArtifact` with LLM self-correction on validation failure.
+ * Pass the model and prompts from the Executor Agent call.
+ */
+export async function parseCodeArtifactWithRetry(
+  rawText: string,
+  opts: SelfCorrectionOptions,
+): Promise<CodeArtifact> {
+  return parseAgentOutputWithRetry(CodeArtifactSchema, rawText, "CodeArtifact from executor", opts);
+}
+
+/**
+ * `parseAuditReport` with LLM self-correction on validation failure.
+ * Pass the model and prompts from the Auditor Agent call.
+ */
+export async function parseAuditReportWithRetry(
+  rawText: string,
+  opts: SelfCorrectionOptions,
+): Promise<AuditReport> {
+  return parseAgentOutputWithRetry(AuditReportSchema, rawText, "AuditReport from auditor", opts);
 }

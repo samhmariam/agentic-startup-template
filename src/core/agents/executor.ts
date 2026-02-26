@@ -13,7 +13,7 @@ import { agenticEngineer } from "../../../.agentic/roles/agentic-engineer.js";
 import { executorTools } from "../../../.agentic/tools/index.js";
 import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { retrieveMulti, formatAsContext } from "../context/retriever.js";
-import { parseCodeArtifact } from "../guardrails/schema-validator.js";
+import { parseCodeArtifactWithRetry } from "../guardrails/schema-validator.js";
 import type { TechSpec, CodeArtifact } from "../../../docs/schema/entities.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -41,28 +41,23 @@ export async function executeSpec(spec: TechSpec): Promise<CodeArtifact> {
   console.log(`[executor] Retrieved ${contextDocs.length} context chunks`);
 
   // ── Stage 3b: Multi-step agentic execution ─────────────────────────────────
+  const systemPrompt = `${agenticEngineer.systemPrompt}\n\n${contextBlock}`;
+  const userPrompt = `Implement the following TechSpec. After generating all files, \nrun runTypeCheck and runLint to verify. Fix any errors before producing the final output.\n\nTechSpec:\n${JSON.stringify(spec, null, 2)}\n\nOutput a CodeArtifact JSON object with:\n- id: a unique nanoid\n- specId: "${spec.id}"\n- files: { "relative/path.ts": "full file contents", ... }\n- summary: what was built\n- verificationSteps: ["npm run typecheck", ...]\n- createdAt: current ISO-8601 timestamp`;
+
   const { text } = await generateText({
     model: agenticEngineer.model,
     ...(agenticEngineer.maxSteps !== undefined ? { maxSteps: agenticEngineer.maxSteps } : {}),
     tools: executorTools,
-    system: `${agenticEngineer.systemPrompt}\n\n${contextBlock}`,
-    prompt: `Implement the following TechSpec. After generating all files, 
-run runTypeCheck and runLint to verify. Fix any errors before producing the final output.
-
-TechSpec:
-${JSON.stringify(spec, null, 2)}
-
-Output a CodeArtifact JSON object with:
-- id: a unique nanoid
-- specId: "${spec.id}"
-- files: { "relative/path.ts": "full file contents", ... }
-- summary: what was built
-- verificationSteps: ["npm run typecheck", ...]
-- createdAt: current ISO-8601 timestamp`,
+    system: systemPrompt,
+    prompt: userPrompt,
   });
 
-  // ── Stage 3c: Validate at boundary ────────────────────────────────────────
-  const artifact = parseCodeArtifact(text);
+  // ── Stage 3c: Validate at boundary (with self-correction) ─────────────────
+  const artifact = await parseCodeArtifactWithRetry(text, {
+    model: agenticEngineer.model,
+    systemPrompt,
+    originalPrompt: userPrompt,
+  });
   const fileCount = Object.keys(artifact.files).length;
   console.log(`[executor] ✓ Artifact: ${fileCount} file(s) generated`);
 

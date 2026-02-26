@@ -14,7 +14,7 @@ import { securityLead } from "../../../.agentic/roles/security-lead.js";
 import { auditorTools } from "../../../.agentic/tools/index.js";
 import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { retrieve, formatAsContext } from "../context/retriever.js";
-import { parseAuditReport } from "../guardrails/schema-validator.js";
+import { parseAuditReportWithRetry } from "../guardrails/schema-validator.js";
 import type { CodeArtifact, AuditReport } from "../../../docs/schema/entities.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -47,23 +47,23 @@ export async function auditArtifact(artifact: CodeArtifact): Promise<AuditReport
   console.log(`[auditor] Retrieved ${pastFindings.length} past findings`);
 
   // ── Stage 4b: Run security audit ──────────────────────────────────────────
+  const systemPrompt = `${securityLead.systemPrompt}\n\n${context}`;
+  const userPrompt = `Audit the following code artifact for security vulnerabilities.\nFor every critical or high severity finding, call the writeVulnerability tool to persist it.\n\nArtifact ID: ${artifact.id}\nFiles:\n${fileContents}\n\nOutput an AuditReport JSON matching the schema in docs/schema/entities.ts.`;
+
   const { text } = await generateText({
     model: securityLead.model,
     ...(securityLead.maxSteps !== undefined ? { maxSteps: securityLead.maxSteps } : {}),
     tools: auditorTools,
-    system: `${securityLead.systemPrompt}\n\n${context}`,
-    prompt: `Audit the following code artifact for security vulnerabilities.
-For every critical or high severity finding, call the writeVulnerability tool to persist it.
-
-Artifact ID: ${artifact.id}
-Files:
-${fileContents}
-
-Output an AuditReport JSON matching the schema in docs/schema/entities.ts.`,
+    system: systemPrompt,
+    prompt: userPrompt,
   });
 
-  // ── Stage 4c: Validate at boundary ────────────────────────────────────────
-  const report = parseAuditReport(text);
+  // ── Stage 4c: Validate at boundary (with self-correction) ─────────────────
+  const report = await parseAuditReportWithRetry(text, {
+    model: securityLead.model,
+    systemPrompt,
+    originalPrompt: userPrompt,
+  });
   const highCount = report.findings.filter(
     (f) => f.severity === "critical" || f.severity === "high",
   ).length;
