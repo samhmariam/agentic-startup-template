@@ -15,10 +15,10 @@
  * Each dimension score is averaged; result must exceed MIN_EVAL_SCORE.
  */
 
-import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { planFeature } from "../../src/core/agents/planner.js";
+import { generateText } from "ai";
 import type { TechSpec } from "../../docs/schema/entities.js";
+import { planFeature } from "../../src/core/agents/planner.js";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,10 @@ Score the spec on four dimensions from 0.0 to 1.0:
 Return ONLY valid JSON: {"completeness":0.9,"clarity":0.8,"feasibility":0.9,"safety":0.7,"rationale":"..."}`,
   });
 
-  const cleaned = text.trim().replace(/^```json\n?/i, "").replace(/\n?```$/i, "");
+  const cleaned = text
+    .trim()
+    .replace(/^```json\n?/i, "")
+    .replace(/\n?```$/i, "");
   const raw = JSON.parse(cleaned) as JudgeScore;
 
   return {

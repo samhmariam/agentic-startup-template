@@ -11,8 +11,8 @@
  * for a "hit." Results below MIN_EVAL_SCORE fail the CI gate.
  */
 
-import { retrieve } from "../../src/core/context/retriever.js";
 import { COLLECTIONS } from "../../.agentic/memory/types.js";
+import { retrieve } from "../../src/core/context/retriever.js";
 
 // ── Test cases ────────────────────────────────────────────────────────────────
 

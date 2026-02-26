@@ -153,5 +153,11 @@ export const FlywheelResultSchema = z.object({
   polished: CodeArtifactSchema,
   completedAt: ISODateSchema,
   durationMs: z.number().int().nonnegative(),
+  /**
+   * Harness Engineering — Trust Gate fields (present only when autoMerge:true).
+   * Following schema-evolution convention: new fields are .optional() first.
+   */
+  autoMerged: z.boolean().optional(),
+  logicReviewPassed: z.boolean().optional(),
 });
 export type FlywheelResult = z.infer<typeof FlywheelResultSchema>;

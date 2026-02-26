@@ -10,13 +10,13 @@
  */
 
 import { generateText } from "ai";
+import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { vibeEngineer } from "../../../.agentic/roles/vibe-engineer.js";
 import { polisherTools } from "../../../.agentic/tools/index.js";
-import { COLLECTIONS } from "../../../.agentic/memory/types.js";
-import { retrieveMulti, formatAsContext } from "../context/retriever.js";
-import { parseCodeArtifact } from "../guardrails/schema-validator.js";
+import type { AuditReport, CodeArtifact, PolishedArtifact } from "../../../docs/schema/entities.js";
 import { indexDocuments } from "../context/indexer.js";
-import type { CodeArtifact, AuditReport, PolishedArtifact } from "../../../docs/schema/entities.js";
+import { formatAsContext, retrieveMulti } from "../context/retriever.js";
+import { parseCodeArtifact } from "../guardrails/schema-validator.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

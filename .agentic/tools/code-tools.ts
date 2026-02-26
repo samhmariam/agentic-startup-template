@@ -6,9 +6,9 @@
  * before declaring their work done.
  */
 
-import { tool } from "ai";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { tool } from "ai";
 import { z } from "zod";
 
 const execAsync = promisify(exec);

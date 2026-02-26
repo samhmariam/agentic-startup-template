@@ -18,9 +18,7 @@ seedContext()
     for (const [collection, count] of Object.entries(result.byCollection)) {
       console.log(`     ${collection.padEnd(20)} ${count} chunks`);
     }
-    console.log(
-      "\n💡 Run 'npm run evals' to verify retrieval quality.",
-    );
+    console.log("\n💡 Run 'npm run evals' to verify retrieval quality.");
   })
   .catch((error: unknown) => {
     console.error("\n❌ Seed failed:", error);

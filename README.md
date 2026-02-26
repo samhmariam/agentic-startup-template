@@ -142,7 +142,156 @@ pnpm lint:fix        # Auto-fix lint issues
 pnpm test:unit       # Fast unit tests (no API key)
 pnpm test:agentic    # Agentic integration tests (no API key — uses mock LLM)
 pnpm test            # All tests
+pnpm check:layers    # Architectural layer linter (exits 1 if violations found)
+pnpm garden          # Run Gardening Agent — produces garden-report.json + .md
 ```
+
+---
+
+## Harness Engineering Features
+
+> Reference: *"Harness Engineering"* (OpenAI, 2026) — maximize repository legibility for agents,
+> create autonomous feedback loops, and enable high-throughput development with zero manually
+> written code.
+
+### 1. Repository Knowledge as System of Record
+
+**Progressive Disclosure** — Role prompts are two-level:
+
+| Level | Location | Purpose |
+|-------|----------|---------|
+| Stub (≤40 lines) | `.agentic/roles/<role>.ts` | Table of Contents — model, collection, one-line superpower |
+| Full Logic | `docs/roles/<role>.md` | Complete persona, output format, invariants |
+
+At module load time, each stub does `readFileSync("docs/roles/<role>.md")` so the LLM always
+receives the full current logic. Updating a role is a single Markdown edit — no TypeScript
+compilation required.
+
+**Roles available:** `product-architect`, `agentic-engineer`, `context-engineer`,
+`security-lead`, `vibe-engineer`, `logic-critic`.
+
+**Commit-First Invariant** — The Context Engineer is required to commit any external context
+(human chats, Slack threads, temporary notes) as a versioned Markdown file under
+`docs/context-log/YYYY-MM-DD-<slug>.md` before marking a task complete.
+The repository is the single system of record.
+
+### 2. Application Legibility & Observability
+
+**Observability Tools** (`src/core/tools/observability-tools.ts`)
+
+| Tool | Description |
+|------|-------------|
+| `queryLogs` | Mock LogQL — query application logs to verify startup or error output |
+| `queryMetrics` | Mock PromQL — query metrics; `service_startup_seconds` is always populated |
+| `getStartupSeconds()` | Direct helper — returns latest startup time in seconds |
+
+**Post-Ship Verification Loop** — After every `executeSpec()` call, the Executor Agent
+automatically queries `service_startup_seconds` and injects an
+`[observability-warning]` into the artifact summary if startup exceeds **800ms**.
+
+Both tools are included in the `executorTools` bundle and exported from `.agentic/tools/index.ts`.
+
+### 3. Mechanical Taste & Architectural Invariants
+
+**Layer Linter** (`scripts/check-layers.ts`, `pnpm check:layers`)
+
+Enforces a strict one-way dependency direction:
+
+```
+Types → Config → Repo → Service → Runtime → UI
+```
+
+Layer alias map (uses existing directory structure — no renaming):
+
+| Layer | Maps to |
+|-------|---------|
+| Types | `docs/schema/**` |
+| Config | `src/core/guardrails/**` |
+| Repo | `src/core/context/**` |
+| Service | `src/core/agents/**`, `src/core/tools/**` |
+| Runtime | `src/core/flywheel.ts`, `src/core/index.ts` |
+| UI | `scripts/**` |
+
+**Agent-Consumable Error Format** — Every violation includes a `fixInstruction` field
+with a specific, injectable remediation:
+
+```jsonc
+{
+  "file": "src/core/context/retriever.ts",
+  "importedPath": "src/core/agents/planner.ts",
+  "fromLayer": "Repo",
+  "toLayer": "Service",
+  "violation": "Repo→Service: upward dependency",
+  "fixInstruction": "Layer violation: Repo must not depend on Service. …"
+}
+```
+
+Pipe violations directly into an agent's context window:
+```bash
+pnpm check:layers 2>/dev/null | jq '.[].fixInstruction'
+```
+
+### 4. Garbage Collection — The Gardening Agent
+
+**`pnpm garden`** — Orchestrates a codebase-wide audit to find AI Slop and architectural drift.
+
+Produces two outputs:
+
+| File | Format | Purpose |
+|------|--------|---------|
+| `garden-report.json` | Structured JSON | Machine-readable cleanup intents for agent consumption |
+| `garden-report.md` | Markdown | Human-readable summary table |
+
+Each `CleanupIntent` in `garden-report.json` specifies:
+- `id` — stable identifier (`GC-001`, `GC-002`, …)
+- `type` — `centralize-helper`, `add-zod-boundary`, `remove-inline-retry`, `remove-ai-slop`, `fix-layer-violation`
+- `affectedFiles` — files that need to change
+- `suggestedTarget` — where to move centralised logic
+- `priority` — `critical | high | medium | low`
+- `autoFixable` — whether an agent can apply the fix without human review
+
+The Gardening Agent runs two passes:
+1. **Auditor Agent batches** — calls `auditArtifact()` across all files in groups of 5
+2. **Static AI Slop detection** — regex-based detection of `JSON.parse` without Zod, hand-rolled
+   retry loops, TODO comments, and duplicate exported function names
+
+### 5. Autonomous Merge Philosophy — Trust Gate
+
+**`FlywheelOptions.autoMerge: boolean`**
+
+When `autoMerge: true`, the flywheel runs a **dual-sentinel Trust Gate** after Stage 4
+before the HITL approval gate:
+
+```
+Security Sentinel (Auditor)  —  zero critical/high findings?
+Logic Critic (Product Architect model)  —  all acceptance criteria covered?
+          ↓
+    Both pass → Perfect Pass → autoMerged: true (HITL gate skipped)
+    Either fails → fall back to approveSpec gate, or throw
+```
+
+**Result fields added when `autoMerge` is set:**
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `autoMerged` | `boolean` | `true` if the Trust Gate produced a Perfect Pass |
+| `logicReviewPassed` | `boolean` | Logic Critic verdict |
+
+```typescript
+// Example: fully autonomous flywheel run
+const result = await runFlywheel("Add /health endpoint", {
+  autoMerge: true,
+  haltOnAuditFailure: true,
+});
+console.log(result.autoMerged); // true if Perfect Pass
+```
+
+The Logic Critic (`src/core/agents/logic-critic.ts`) verifies five dimensions:
+1. Acceptance Criteria Coverage
+2. No Logical Contradiction
+3. Runnable Verification Steps
+4. Accurate Summary
+5. No Silent Omissions
 
 ---
 

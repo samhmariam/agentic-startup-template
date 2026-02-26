@@ -7,11 +7,8 @@
  * Exits with code 1 if any suite score is below MIN_EVAL_SCORE.
  */
 
-import {
-  computePrecisionAt5,
-  runRetrievalEvals,
-} from "./context-retrieval.eval.js";
 import { runAgentOutputEvals } from "./agent-output.eval.js";
+import { computePrecisionAt5, runRetrievalEvals } from "./context-retrieval.eval.js";
 
 const MIN_SCORE = Number(process.env["MIN_EVAL_SCORE"] ?? "0.70");
 
@@ -47,9 +44,13 @@ async function main(): Promise<void> {
   for (const r of retrievalResults) {
     const icon = r.hit ? "  ✓" : "  ✗";
     console.log(`${icon} ${r.name}`);
-    console.log(`    Score: ${r.score.toFixed(3)}  Top result: ${(r.topResult ?? "—").slice(0, 60)}...`);
+    console.log(
+      `    Score: ${r.score.toFixed(3)}  Top result: ${(r.topResult ?? "—").slice(0, 60)}...`,
+    );
   }
-  console.log(`\n  Precision@5: ${bar(retrievalScore)} ${(retrievalScore * 100).toFixed(0)}%  ${scoreLabel(retrievalScore)}`);
+  console.log(
+    `\n  Precision@5: ${bar(retrievalScore)} ${(retrievalScore * 100).toFixed(0)}%  ${scoreLabel(retrievalScore)}`,
+  );
 
   if (retrievalScore < MIN_SCORE) allPassed = false;
 
@@ -61,15 +62,15 @@ async function main(): Promise<void> {
   const agentResults = await runAgentOutputEvals();
   const agentScores = agentResults.map((r) => r.scores.overall);
   const avgAgentScore =
-    agentScores.length > 0
-      ? agentScores.reduce((a, b) => a + b, 0) / agentScores.length
-      : 0;
+    agentScores.length > 0 ? agentScores.reduce((a, b) => a + b, 0) / agentScores.length : 0;
 
   for (const r of agentResults) {
     const { scores } = r;
     console.log(`\n  Brief  : ${r.brief.slice(0, 70)}...`);
     console.log(`  Spec   : ${r.specTitle}`);
-    console.log(`  Scores : completeness=${scores.completeness.toFixed(2)} clarity=${scores.clarity.toFixed(2)} feasibility=${scores.feasibility.toFixed(2)} safety=${scores.safety.toFixed(2)}`);
+    console.log(
+      `  Scores : completeness=${scores.completeness.toFixed(2)} clarity=${scores.clarity.toFixed(2)} feasibility=${scores.feasibility.toFixed(2)} safety=${scores.safety.toFixed(2)}`,
+    );
     console.log(`  Overall: ${scores.overall.toFixed(2)}  ${scoreLabel(scores.overall)}`);
     console.log(`  Judge  : ${scores.rationale.slice(0, 120)}`);
   }
@@ -84,9 +85,15 @@ async function main(): Promise<void> {
   console.log("\n" + "═".repeat(60));
   console.log("Summary");
   console.log("═".repeat(60));
-  console.log(`  Retrieval Precision@5 : ${(retrievalScore * 100).toFixed(0)}%  ${scoreLabel(retrievalScore)}`);
-  console.log(`  Agent Output Quality  : ${(avgAgentScore * 100).toFixed(0)}%  ${scoreLabel(avgAgentScore)}`);
-  console.log(`\n  Overall: ${allPassed ? "✅ ALL SUITES PASSED" : "❌ ONE OR MORE SUITES FAILED"}`);
+  console.log(
+    `  Retrieval Precision@5 : ${(retrievalScore * 100).toFixed(0)}%  ${scoreLabel(retrievalScore)}`,
+  );
+  console.log(
+    `  Agent Output Quality  : ${(avgAgentScore * 100).toFixed(0)}%  ${scoreLabel(avgAgentScore)}`,
+  );
+  console.log(
+    `\n  Overall: ${allPassed ? "✅ ALL SUITES PASSED" : "❌ ONE OR MORE SUITES FAILED"}`,
+  );
 
   process.exit(allPassed ? 0 : 1);
 }

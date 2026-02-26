@@ -13,8 +13,8 @@
  *   - The FlywheelResult shape is correct.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -32,8 +32,7 @@ const MOCK_ARTIFACT = {
   id: randomUUID(),
   specId: MOCK_SPEC.id,
   files: {
-    "src/api/hello.ts":
-      'export function hello() { return { message: "Hello" }; }',
+    "src/api/hello.ts": 'export function hello() { return { message: "Hello" }; }',
   },
   summary: "Implemented hello endpoint",
   verificationSteps: ["npm run typecheck"],
@@ -137,9 +136,9 @@ describe("runFlywheel()", () => {
     });
 
     const { runFlywheel } = await import("../../src/core/flywheel.js");
-    await expect(
-      runFlywheel("Test brief", { haltOnAuditFailure: true }),
-    ).rejects.toThrow("[flywheel] Audit failed");
+    await expect(runFlywheel("Test brief", { haltOnAuditFailure: true })).rejects.toThrow(
+      "[flywheel] Audit failed",
+    );
   });
 });
 
@@ -176,9 +175,9 @@ describe("runFlywheel() — approveSpec gate", () => {
   });
 
   it("aborts the run when approveSpec throws", async () => {
-    const approveSpec = vi.fn().mockRejectedValue(
-      new Error("[flywheel] Spec rejected by operator — run aborted."),
-    );
+    const approveSpec = vi
+      .fn()
+      .mockRejectedValue(new Error("[flywheel] Spec rejected by operator — run aborted."));
 
     const { executeSpec } = await import("../../src/core/agents/executor.js");
     const { runFlywheel } = await import("../../src/core/flywheel.js");

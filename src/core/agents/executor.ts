@@ -9,12 +9,16 @@
  */
 
 import { generateText } from "ai";
+import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { agenticEngineer } from "../../../.agentic/roles/agentic-engineer.js";
 import { executorTools } from "../../../.agentic/tools/index.js";
-import { COLLECTIONS } from "../../../.agentic/memory/types.js";
-import { retrieveMulti, formatAsContext } from "../context/retriever.js";
+import type { CodeArtifact, TechSpec } from "../../../docs/schema/entities.js";
+import { formatAsContext, retrieveMulti } from "../context/retriever.js";
 import { parseCodeArtifactWithRetry } from "../guardrails/schema-validator.js";
-import type { TechSpec, CodeArtifact } from "../../../docs/schema/entities.js";
+import { getStartupSeconds } from "../tools/observability-tools.js";
+
+/** Service startup SLA in seconds (800ms). Change is caught by the observability check. */
+const STARTUP_SLA_SECONDS = 0.8;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -60,6 +64,24 @@ export async function executeSpec(spec: TechSpec): Promise<CodeArtifact> {
   });
   const fileCount = Object.keys(artifact.files).length;
   console.log(`[executor] ✓ Artifact: ${fileCount} file(s) generated`);
+
+  // ── Stage 3d: Post-ship observability check ─────────────────────────────────
+  const latestStartup = getStartupSeconds();
+  const startupMs = Math.round(latestStartup * 1000);
+
+  console.log(
+    `[executor] ▶ observability-check startup=${startupMs}ms (SLA: ${STARTUP_SLA_SECONDS * 1000}ms)`,
+  );
+
+  if (latestStartup > STARTUP_SLA_SECONDS) {
+    const warning = `[observability] startup=${startupMs}ms exceeds SLA of ${STARTUP_SLA_SECONDS * 1000}ms. Investigate cold-start path and defer non-critical initialisation.`;
+    console.warn(`[executor] ⚠️  ${warning}`);
+    // Surface the warning in the artifact summary so auditors and the logic critic can see it.
+    return {
+      ...artifact,
+      summary: `${artifact.summary}\n\n[observability-warning] ${warning}`,
+    };
+  }
 
   return artifact;
 }

@@ -9,12 +9,12 @@
  */
 
 import { generateText } from "ai";
+import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { productArchitect } from "../../../.agentic/roles/product-architect.js";
 import { plannerTools } from "../../../.agentic/tools/index.js";
-import { COLLECTIONS } from "../../../.agentic/memory/types.js";
-import { retrieve, retrieveMulti, formatAsContext } from "../context/retriever.js";
-import { parseTechSpecWithRetry } from "../guardrails/schema-validator.js";
 import type { TechSpec } from "../../../docs/schema/entities.js";
+import { formatAsContext, retrieveMulti } from "../context/retriever.js";
+import { parseTechSpecWithRetry } from "../guardrails/schema-validator.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

@@ -14,6 +14,8 @@ export { planFeature } from "./agents/planner.js";
 export { executeSpec } from "./agents/executor.js";
 export { auditArtifact } from "./agents/auditor.js";
 export { polishOutput } from "./agents/polisher.js";
+export { runLogicReview, LogicReviewSchema } from "./agents/logic-critic.js";
+export type { LogicReview } from "./agents/logic-critic.js";
 
 // ── Context (RAG) ─────────────────────────────────────────────────────────────
 export { seedContext } from "./context/seeder.js";
@@ -59,6 +61,16 @@ export {
 } from "../../docs/schema/entities.js";
 
 // ── Memory ────────────────────────────────────────────────────────────────────
+// ── Observability tools ────────────────────────────────────────────────────────
+export { queryLogs, queryMetrics, getStartupSeconds } from "./tools/observability-tools.js";
+export type { LogLine, MetricSeries } from "./tools/observability-tools.js";
+
+// ── Memory ───────────────────────────────────────────────────────────────────
 export { getMemoryStore, ChromaMemoryStore } from "../../.agentic/memory/chroma-store.js";
 export { COLLECTIONS } from "../../.agentic/memory/types.js";
-export type { MemoryStore, MemoryDocument, QueryResult, CollectionName } from "../../.agentic/memory/types.js";
+export type {
+  MemoryStore,
+  MemoryDocument,
+  QueryResult,
+  CollectionName,
+} from "../../.agentic/memory/types.js";

@@ -9,7 +9,7 @@
  * Uses a mock MemoryStore to avoid needing a real Chroma instance in CI.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chunkText, contentHash, indexDocuments } from "../../src/core/context/indexer.js";
 import { sanitize } from "../../src/core/guardrails/pii-filter.js";
 

@@ -5,12 +5,8 @@
  * Fast, deterministic — no API keys, no network, no ChromaDB.
  */
 
-import { describe, it, expect } from "vitest";
-import {
-  sanitize,
-  sanitizeWithReport,
-  containsPii,
-} from "../../src/core/guardrails/pii-filter.js";
+import { describe, expect, it } from "vitest";
+import { containsPii, sanitize, sanitizeWithReport } from "../../src/core/guardrails/pii-filter.js";
 
 describe("sanitize()", () => {
   it("redacts email addresses", () => {

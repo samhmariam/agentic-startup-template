@@ -16,14 +16,14 @@
 
 import { generateText } from "ai";
 import type { LanguageModelV1 } from "ai";
-import { type z, type ZodTypeAny } from "zod";
+import type { ZodTypeAny, z } from "zod";
 import {
-  AuditReportSchema,
-  CodeArtifactSchema,
-  TechSpecSchema,
   type AuditReport,
+  AuditReportSchema,
   type CodeArtifact,
+  CodeArtifactSchema,
   type TechSpec,
+  TechSpecSchema,
 } from "../../../docs/schema/entities.js";
 
 // ── Generic validator ─────────────────────────────────────────────────────────
@@ -118,7 +118,8 @@ export async function parseAgentOutputWithRetry<S extends ZodTypeAny>(
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      issuesSummary = "Output was not valid JSON — ensure the response is a raw JSON object with no markdown.";
+      issuesSummary =
+        "Output was not valid JSON — ensure the response is a raw JSON object with no markdown.";
     }
 
     if (parsed !== undefined) {

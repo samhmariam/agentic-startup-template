@@ -15,8 +15,8 @@
  *  6. The function is pure except for the LLM call and retriever — both are injected.
  */
 
-import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
 import { z } from "zod";
 import type { TechSpec } from "../../docs/schema/entities.js";
 import { TechSpecSchema } from "../../docs/schema/entities.js";
@@ -90,6 +90,8 @@ Output ONLY valid JSON matching this shape — no markdown, no prose:
     );
   }
 
-  console.log(`[planner] Spec generated: "${result.data.title}" (${result.data.acceptanceCriteria.length} criteria)`);
+  console.log(
+    `[planner] Spec generated: "${result.data.title}" (${result.data.acceptanceCriteria.length} criteria)`,
+  );
   return result.data;
 }

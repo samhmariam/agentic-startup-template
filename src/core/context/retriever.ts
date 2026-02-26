@@ -27,13 +27,11 @@ export interface RetrieveOptions {
  * @param query - Natural-language search query.
  * @param options - Collection, topK, minimum relevance score, and optional metadata filter.
  */
-export async function retrieve(query: string, options: RetrieveOptions = {}): Promise<QueryResult[]> {
-  const {
-    collection = COLLECTIONS.DEFAULT,
-    topK = 5,
-    minScore = 0.3,
-    where,
-  } = options;
+export async function retrieve(
+  query: string,
+  options: RetrieveOptions = {},
+): Promise<QueryResult[]> {
+  const { collection = COLLECTIONS.DEFAULT, topK = 5, minScore = 0.3, where } = options;
 
   const store = getMemoryStore();
   const results = await store.query(collection, query, topK, where);
@@ -82,8 +80,7 @@ export function formatAsContext(results: QueryResult[], label = "Retrieved Conte
   }
 
   const chunks = results.map(
-    (r, i) =>
-      `### Chunk ${i + 1} (score: ${r.score.toFixed(3)})\n${r.content}`,
+    (r, i) => `### Chunk ${i + 1} (score: ${r.score.toFixed(3)})\n${r.content}`,
   );
 
   return `## ${label}\n\n${chunks.join("\n\n")}`;

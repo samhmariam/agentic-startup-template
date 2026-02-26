@@ -58,7 +58,13 @@ const DEFAULT_SOURCES: SeedSource[] = [
     collection: COLLECTIONS.DEFAULT,
     priority: 6,
   },
-  // Role definitions (agents can look up how other roles work)
+  // Role full-logic docs (Harness Engineering: system-of-record for all role prompts)
+  {
+    pattern: "docs/roles/**/*.md",
+    collection: COLLECTIONS.DEFAULT,
+    priority: 7,
+  },
+  // Role stub definitions (agents can look up how other roles work)
   {
     pattern: ".agentic/roles/**/*.ts",
     collection: COLLECTIONS.DEFAULT,
@@ -115,12 +121,9 @@ export async function seedContext(
 
       totalFiles++;
       totalDocuments += result.indexed;
-      byCollection[source.collection] =
-        (byCollection[source.collection] ?? 0) + result.indexed;
+      byCollection[source.collection] = (byCollection[source.collection] ?? 0) + result.indexed;
 
-      console.log(
-        `[seed] ${relativePath} → ${source.collection} (${result.indexed} chunks)`,
-      );
+      console.log(`[seed] ${relativePath} → ${source.collection} (${result.indexed} chunks)`);
     }
   }
 

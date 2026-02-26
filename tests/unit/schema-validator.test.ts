@@ -5,16 +5,16 @@
  * Fast, deterministic — no API calls.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { generateText } from "ai";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
-  parseTechSpec,
-  parseCodeArtifact,
-  parseAuditReport,
   parseAgentOutput,
   parseAgentOutputWithRetry,
+  parseAuditReport,
+  parseCodeArtifact,
+  parseTechSpec,
 } from "../../src/core/guardrails/schema-validator.js";
-import { z } from "zod";
-import { generateText } from "ai";
 
 // Mock the 'ai' module once at module level so Vitest can hoist it.
 // Only generateText is needed — all other exports are irrelevant to these tests.
@@ -91,9 +91,7 @@ describe("parseCodeArtifact()", () => {
 
   it("throws on empty files object that is still valid", () => {
     // files: {} is valid by schema (no min constraint)
-    const artifact = parseCodeArtifact(
-      JSON.stringify({ ...VALID_CODE_ARTIFACT, files: {} }),
-    );
+    const artifact = parseCodeArtifact(JSON.stringify({ ...VALID_CODE_ARTIFACT, files: {} }));
     expect(artifact.files).toEqual({});
   });
 });
@@ -178,7 +176,7 @@ describe("parseAgentOutputWithRetry()", () => {
 
     const result = await parseAgentOutputWithRetry(
       Schema,
-      "not json at all",  // first attempt fails
+      "not json at all", // first attempt fails
       "test",
       { ...retryOpts, maxRetries: 1 },
     );

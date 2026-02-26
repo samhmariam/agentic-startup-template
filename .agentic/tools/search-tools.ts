@@ -63,7 +63,10 @@ export const searchVulnerabilities = tool({
     "Retrieve past security findings from the vulnerabilities collection. " +
     "Use this at the start of every audit to check for patterns we have seen before.",
   parameters: z.object({
-    query: z.string().min(3).describe("Describe the code pattern or vulnerability type to look up."),
+    query: z
+      .string()
+      .min(3)
+      .describe("Describe the code pattern or vulnerability type to look up."),
     topK: z.number().int().min(1).max(10).default(5),
   }),
   execute: async ({ query, topK }) => {

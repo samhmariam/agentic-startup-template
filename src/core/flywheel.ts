@@ -20,14 +20,15 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { seedContext } from "./context/seeder.js";
-import { planFeature } from "./agents/planner.js";
-import { executeSpec } from "./agents/executor.js";
-import { auditArtifact } from "./agents/auditor.js";
-import { polishOutput } from "./agents/polisher.js";
+import { createInterface } from "node:readline/promises";
 import type { FlywheelResult, TechSpec } from "../../docs/schema/entities.js";
+import { auditArtifact } from "./agents/auditor.js";
+import { executeSpec } from "./agents/executor.js";
+import { runLogicReview } from "./agents/logic-critic.js";
+import { planFeature } from "./agents/planner.js";
+import { polishOutput } from "./agents/polisher.js";
+import { seedContext } from "./context/seeder.js";
 
 // ── Flywheel ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,23 @@ export interface FlywheelOptions {
   reseed?: boolean;
   /** Abort after the audit if it fails (default: false — polish runs regardless) */
   haltOnAuditFailure?: boolean;
+  /**
+   * Autonomous Merge (Harness Engineering — Trust Gate).
+   *
+   * When true, the flywheel runs a Logic Critic review after Stage 4.
+   * If both the Security Sentinel (auditor) and the Logic Critic return a
+   * "Perfect Pass," the HITL `approveSpec` gate is bypassed entirely.
+   *
+   * Trust Gate conditions:
+   *   • `audit.passed === true` (zero critical/high security findings)
+   *   • `logicReview.passed === true` (all acceptance criteria covered)
+   *
+   * If either check fails, execution falls back to the `approveSpec` gate
+   * (or throws if `approveSpec` is also absent).
+   *
+   * @default false
+   */
+  autoMerge?: boolean;
   /**
    * Human-in-the-Loop approval gate, called after Stage 2 (Planning) and
    * before Stage 3 (Execution).
@@ -94,7 +112,8 @@ export async function runFlywheel(
 
   // ── HITL Approval Gate (optional) ─────────────────────────────────────────
   let approvedSpec = spec;
-  if (options.approveSpec) {
+  if (options.approveSpec && !options.autoMerge) {
+    // When autoMerge:true the Trust Gate (post-Stage 4) takes over from the HITL gate.
     console.log("\n⏸  Awaiting approval — inspect the spec above, then respond.");
     approvedSpec = await options.approveSpec(spec);
     console.log("[flywheel] ✓ Spec approved — proceeding to execution.");
@@ -118,6 +137,45 @@ export async function runFlywheel(
     );
   }
 
+  // ── Trust Gate (Harness Engineering — autoMerge) ───────────────────────────
+  let autoMerged = false;
+  let logicReviewPassed: boolean | undefined;
+
+  if (options.autoMerge) {
+    console.log("\n🤖 Trust Gate — Logic Critic review");
+    const logicReview = await runLogicReview(approvedSpec, artifact);
+    logicReviewPassed = logicReview.passed;
+
+    const perfectPass = audit.passed && logicReview.passed;
+
+    if (perfectPass) {
+      console.log(
+        "[flywheel] ✅ Trust Gate PASSED — auto-merging (Security Sentinel + Logic Critic: Perfect Pass)",
+      );
+      autoMerged = true;
+      // Skip the approveSpec HITL gate entirely — both sentinels returned Perfect Pass.
+    } else {
+      const failReasons: string[] = [];
+      if (!audit.passed)
+        failReasons.push(
+          `Security Sentinel: ${audit.findings.filter((f) => f.severity === "critical" || f.severity === "high").length} critical/high finding(s)`,
+        );
+      if (!logicReview.passed) failReasons.push(`Logic Critic: ${logicReview.issues.join("; ")}`);
+
+      console.warn(`[flywheel] ⚠️  Trust Gate FAILED — ${failReasons.join(" | ")}`);
+
+      if (options.approveSpec) {
+        console.log("\n⏸  Trust Gate failed — falling back to manual approval gate.");
+        approvedSpec = await options.approveSpec(approvedSpec);
+        console.log("[flywheel] ✓ Manual approval received.");
+      } else {
+        throw new Error(
+          `[flywheel] Trust Gate failed and no approveSpec fallback is configured.\n\n${failReasons.join("\n")}`,
+        );
+      }
+    }
+  }
+
   // ── Stage 5: Human Polish ──────────────────────────────────────────────────
   console.log("\n✨ Stage 5 — Human Polish");
   const polished = await polishOutput(artifact, audit);
@@ -133,13 +191,16 @@ export async function runFlywheel(
     polished,
     completedAt: new Date().toISOString(),
     durationMs,
+    ...(options.autoMerge !== undefined ? { autoMerged, logicReviewPassed } : {}),
   };
 
   console.log("\n" + "─".repeat(60));
   console.log(`✅ Flywheel complete in ${(durationMs / 1000).toFixed(1)}s`);
   console.log(`   Spec    : ${spec.title}`);
   console.log(`   Files   : ${Object.keys(polished.files).length}`);
-  console.log(`   Audit   : ${audit.passed ? "PASSED ✓" : "FAILED ✗"} (${audit.findings.length} findings)`);
+  console.log(
+    `   Audit   : ${audit.passed ? "PASSED ✓" : "FAILED ✗"} (${audit.findings.length} findings)`,
+  );
   console.log("─".repeat(60));
 
   return result;

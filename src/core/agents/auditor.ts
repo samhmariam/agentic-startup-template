@@ -10,12 +10,12 @@
  */
 
 import { generateText } from "ai";
+import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import { securityLead } from "../../../.agentic/roles/security-lead.js";
 import { auditorTools } from "../../../.agentic/tools/index.js";
-import { COLLECTIONS } from "../../../.agentic/memory/types.js";
-import { retrieve, formatAsContext } from "../context/retriever.js";
+import type { AuditReport, CodeArtifact } from "../../../docs/schema/entities.js";
+import { formatAsContext, retrieve } from "../context/retriever.js";
 import { parseAuditReportWithRetry } from "../guardrails/schema-validator.js";
-import type { CodeArtifact, AuditReport } from "../../../docs/schema/entities.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 

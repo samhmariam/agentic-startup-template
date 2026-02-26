@@ -16,7 +16,9 @@
     "seed": "tsx scripts/seed-context.ts",
     "flywheel": "tsx src/core/flywheel.ts",
     "audit:ci": "tsx scripts/run-agentic-audit.ts",
-    "dev": "tsx --watch src/core/flywheel.ts"
+    "dev": "tsx --watch src/core/flywheel.ts",
+    "check:layers": "tsx scripts/check-layers.ts",
+    "garden": "tsx scripts/garden.ts"
   },
   "dependencies": {
     "ai": "^4.3.0",

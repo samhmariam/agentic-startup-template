@@ -8,11 +8,11 @@
  * Usage: npx tsx scripts/run-agentic-audit.ts src/foo.ts src/bar.ts
  */
 
-import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { writeFile } from "node:fs/promises";
-import { auditArtifact } from "../src/core/agents/auditor.js";
 import type { CodeArtifact } from "../docs/schema/entities.js";
+import { auditArtifact } from "../src/core/agents/auditor.js";
 
 const filePaths = process.argv.slice(2);
 

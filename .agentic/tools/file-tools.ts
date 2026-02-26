@@ -7,9 +7,9 @@
  * and checked against an allowlist to prevent path traversal.
  */
 
-import { tool } from "ai";
 import { readFile as fsReadFile, readdir } from "node:fs/promises";
 import { join, normalize, resolve } from "node:path";
+import { tool } from "ai";
 import { z } from "zod";
 
 // ── Root guard ────────────────────────────────────────────────────────────────
@@ -55,9 +55,7 @@ export const readFile = tool({
     path: z
       .string()
       .min(1)
-      .describe(
-        "Workspace-relative path to the file (e.g., 'src/core/guardrails/pii-filter.ts').",
-      ),
+      .describe("Workspace-relative path to the file (e.g., 'src/core/guardrails/pii-filter.ts')."),
   }),
   execute: async ({ path }) => {
     assertReadAllowed(path);
