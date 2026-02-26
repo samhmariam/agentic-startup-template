@@ -42,11 +42,11 @@ export function parseAgentOutput<S extends ZodTypeAny>(
   rawText: string,
   label: string,
 ): z.output<S> {
-  // Strip Markdown code fences if the LLM wrapped the JSON (defensive)
-  const cleaned = rawText
-    .replace(/^```(?:json|typescript|ts)?\n?/i, "")
-    .replace(/\n?```$/i, "")
-    .trim();
+  // Extract JSON from Markdown code fences wherever they appear in the string (F6).
+  // If the LLM prefixes the fence with prose (e.g. "Here's the JSON:\n```json..."),
+  // the regex still finds the fenced content. Falls back to the raw text.
+  const fenceMatch = rawText.match(/```(?:json|typescript|ts)?\n?([\s\S]*?)```/i);
+  const cleaned = (fenceMatch?.[1] ?? rawText).trim();
 
   let parsed: unknown;
   try {
@@ -107,10 +107,8 @@ export async function parseAgentOutputWithRetry<S extends ZodTypeAny>(
   let lastText = rawText;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const cleaned = lastText
-      .replace(/^```(?:json|typescript|ts)?\n?/i, "")
-      .replace(/\n?```$/i, "")
-      .trim();
+    const fenceMatch2 = lastText.match(/```(?:json|typescript|ts)?\n?([\s\S]*?)```/i);
+    const cleaned = (fenceMatch2?.[1] ?? lastText).trim();
 
     let parsed: unknown;
     let issuesSummary: string | undefined;
@@ -147,7 +145,7 @@ export async function parseAgentOutputWithRetry<S extends ZodTypeAny>(
       `Original task:\n${originalPrompt}\n\n` +
       `Produce corrected, valid JSON only — no markdown fences, no explanation.`;
 
-    const { text } = await generateText({ model, system: systemPrompt, prompt: correctionPrompt });
+    const { text } = await generateText({ model, maxRetries: 3, system: systemPrompt, prompt: correctionPrompt });
     lastText = text;
   }
 

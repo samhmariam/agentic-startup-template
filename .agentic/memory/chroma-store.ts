@@ -140,3 +140,14 @@ export function getMemoryStore(): ChromaMemoryStore {
   _instance ??= new ChromaMemoryStore();
   return _instance;
 }
+
+/**
+ * Reset the singleton — sets the shared instance to undefined so the next
+ * `getMemoryStore()` call creates a fresh client.
+ *
+ * ONLY call this in test `afterEach` / `afterAll` hooks to prevent
+ * cross-test contamination (F5). Never call in production code.
+ */
+export function resetMemoryStore(): void {
+  _instance = undefined;
+}

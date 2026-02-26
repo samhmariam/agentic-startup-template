@@ -42,6 +42,7 @@ export async function planFeature(brief: string): Promise<TechSpec> {
 
   const { text } = await generateText({
     model: productArchitect.model,
+    maxRetries: 3,
     ...(productArchitect.maxSteps !== undefined ? { maxSteps: productArchitect.maxSteps } : {}),
     tools: plannerTools,
     system: systemPrompt,

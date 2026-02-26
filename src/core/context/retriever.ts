@@ -8,6 +8,7 @@
 import { getMemoryStore } from "../../../.agentic/memory/chroma-store.js";
 import { COLLECTIONS } from "../../../.agentic/memory/types.js";
 import type { QueryResult } from "../../../.agentic/memory/types.js";
+import { queryCache } from "./query-cache.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,17 @@ export interface RetrieveOptions {
   minScore?: number;
   /** Optional Chroma metadata filter */
   where?: Record<string, unknown>;
+  /**
+   * O1/F4 — When set, only return documents whose `priority` metadata field
+   * is >= this value. Merged into the `where` filter sent to Chroma.
+   */
+  minPriority?: number;
+  /**
+   * O8 — When true, serve results from the in-process TTL cache when available,
+   * and populate the cache on miss. Safe to enable within a single flywheel run.
+   * Defaults to false so tests are never silently cached.
+   */
+  useCache?: boolean;
 }
 
 // ── Retriever ─────────────────────────────────────────────────────────────────
@@ -31,12 +43,30 @@ export async function retrieve(
   query: string,
   options: RetrieveOptions = {},
 ): Promise<QueryResult[]> {
-  const { collection = COLLECTIONS.DEFAULT, topK = 5, minScore = 0.3, where } = options;
+  const { collection = COLLECTIONS.DEFAULT, topK = 5, minScore = 0.3, where, minPriority, useCache = false } =
+    options;
+
+  // Merge minPriority into the Chroma where filter (O1 / F4)
+  const effectiveWhere: Record<string, unknown> | undefined =
+    minPriority !== undefined
+      ? { ...where, priority: { $gte: minPriority } }
+      : where;
+
+  // Serve from cache when opted-in (O8)
+  if (useCache) {
+    const cached = queryCache.get(collection, query, topK, minScore);
+    if (cached !== undefined) return cached;
+  }
 
   const store = getMemoryStore();
-  const results = await store.query(collection, query, topK, where);
+  const results = await store.query(collection, query, topK, effectiveWhere);
+  const filtered = results.filter((r) => r.score >= minScore);
 
-  return results.filter((r) => r.score >= minScore);
+  if (useCache) {
+    queryCache.set(collection, query, topK, minScore, filtered);
+  }
+
+  return filtered;
 }
 
 /**

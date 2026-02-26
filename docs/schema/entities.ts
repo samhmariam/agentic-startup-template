@@ -101,6 +101,14 @@ export const CodeArtifactSchema = z.object({
   /** Shell commands to verify the artifact (e.g. ["npm run typecheck", "npm run test:unit"]) */
   verificationSteps: z.array(z.string()).default([]),
   createdAt: ISODateSchema,
+  /**
+   * Golden Example nomination fields — populated by the Vibe Engineer when
+   * the artifact exemplifies a reusable pattern.
+   * Following schema-evolution convention: new fields are .optional() first.
+   */
+  nominateAsGolden: z.boolean().optional(),
+  goldenTitle: z.string().optional(),
+  goldenTags: z.array(z.string()).optional(),
 });
 export type CodeArtifact = z.infer<typeof CodeArtifactSchema>;
 

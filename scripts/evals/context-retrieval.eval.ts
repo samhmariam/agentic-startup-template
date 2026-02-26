@@ -4,11 +4,13 @@
  * Retrieval quality eval for the Context Engineer's RAG pipeline.
  *
  * Scores:
- *   - Precision@5: of the top-5 results, how many are relevant?
- *   - Recall@5: of the relevant documents, how many appear in top-5?
+ *   - Precision@K: of the top-K results, how many are relevant?
+ *   - Recall@K: of the relevant documents, how many appear in top-K?
  *
  * Each test case has an expected document ID that must appear in the results
  * for a "hit." Results below MIN_EVAL_SCORE fail the CI gate.
+ *
+ * Test suite: 12 cases spanning all collections and query types (O5 / F7).
  */
 
 import { COLLECTIONS } from "../../.agentic/memory/types.js";
@@ -25,6 +27,7 @@ interface RetrievalTestCase {
 }
 
 const TEST_CASES: RetrievalTestCase[] = [
+  // ─ SCHEMA collection ─────────────────────────────────────────────────
   {
     name: "Schema retrieval — TechSpec shape",
     query: "TechSpec acceptance criteria typescript zod schema",
@@ -32,11 +35,39 @@ const TEST_CASES: RetrievalTestCase[] = [
     expectedContentSubstring: "TechSpecSchema",
   },
   {
+    name: "Schema retrieval — CodeArtifact fields",
+    query: "CodeArtifact files verificationSteps zod schema",
+    collection: COLLECTIONS.SCHEMA,
+    expectedContentSubstring: "CodeArtifactSchema",
+  },
+  {
+    name: "Schema retrieval — AuditReport structure",
+    query: "AuditReport findings severity passed zod",
+    collection: COLLECTIONS.SCHEMA,
+    expectedContentSubstring: "AuditReportSchema",
+  },
+  {
+    name: "Schema retrieval — schema evolution convention",
+    query: "schema evolution add optional field convention breaking change",
+    collection: COLLECTIONS.SCHEMA,
+    expectedContentSubstring: "SCHEMA EVOLUTION CONVENTION",
+  },
+
+  // ─ CODE collection ──────────────────────────────────────────────────
+  {
     name: "Golden example — tool definition pattern",
     query: "how to define an AI SDK tool with zod parameters",
     collection: COLLECTIONS.CODE,
     expectedContentSubstring: "tool(",
   },
+  {
+    name: "Golden example — agent function pattern",
+    query: "async agent function generateText system prompt context",
+    collection: COLLECTIONS.CODE,
+    expectedContentSubstring: "generateText",
+  },
+
+  // ─ PLANS collection ────────────────────────────────────────────────
   {
     name: "ADR retrieval — stack decision",
     query: "why did we choose TypeScript over Python",
@@ -44,10 +75,38 @@ const TEST_CASES: RetrievalTestCase[] = [
     expectedContentSubstring: "ADR-001",
   },
   {
+    name: "ADR retrieval — Vercel AI SDK rationale",
+    query: "AI SDK model provider abstraction multi-vendor",
+    collection: COLLECTIONS.PLANS,
+    expectedContentSubstring: "Vercel AI SDK",
+  },
+
+  // ─ QUALITY_BAR collection ─────────────────────────────────────────
+  {
     name: "Quality bar retrieval — enterprise code standards",
     query: "enterprise quality bar code review checklist",
     collection: COLLECTIONS.QUALITY_BAR,
     expectedContentSubstring: "Polish Checklist",
+  },
+  {
+    name: "Quality bar retrieval — accessibility and documentation",
+    query: "JSDoc comments documentation accessibility readability",
+    collection: COLLECTIONS.QUALITY_BAR,
+    expectedContentSubstring: "JSDoc",
+  },
+
+  // ─ DEFAULT collection (architecture / roles) ────────────────────
+  {
+    name: "Architecture retrieval — flywheel lifecycle stages",
+    query: "flywheel seed plan execute audit polish lifecycle stages",
+    collection: COLLECTIONS.DEFAULT,
+    expectedContentSubstring: "flywheel",
+  },
+  {
+    name: "Role retrieval — security lead responsibilities",
+    query: "security lead vulnerability OWASP audit responsibilities",
+    collection: COLLECTIONS.DEFAULT,
+    expectedContentSubstring: "security",
   },
 ];
 

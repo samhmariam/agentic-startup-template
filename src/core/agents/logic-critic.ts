@@ -95,6 +95,7 @@ Output a JSON object: { "passed": true|false, "issues": ["…"] }. No markdown f
 
   const { text } = await generateText({
     model: logicCriticModel,
+    maxRetries: 3,
     system: systemPrompt,
     prompt: userPrompt,
   });

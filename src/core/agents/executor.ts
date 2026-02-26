@@ -45,11 +45,26 @@ export async function executeSpec(spec: TechSpec): Promise<CodeArtifact> {
   console.log(`[executor] Retrieved ${contextDocs.length} context chunks`);
 
   // ── Stage 3b: Multi-step agentic execution ─────────────────────────────────
+  // Build a token-budget-aware spec payload: include only essential fields (O2).
+  // The full spec is still Zod-validated; this is prompt-only truncation.
+  const specPayload = JSON.stringify(
+    {
+      id: spec.id,
+      title: spec.title,
+      brief: spec.brief,
+      acceptanceCriteria: spec.acceptanceCriteria,
+      affectedPaths: spec.affectedPaths,
+    },
+    null,
+    2,
+  );
+
   const systemPrompt = `${agenticEngineer.systemPrompt}\n\n${contextBlock}`;
-  const userPrompt = `Implement the following TechSpec. After generating all files, \nrun runTypeCheck and runLint to verify. Fix any errors before producing the final output.\n\nTechSpec:\n${JSON.stringify(spec, null, 2)}\n\nOutput a CodeArtifact JSON object with:\n- id: a unique nanoid\n- specId: "${spec.id}"\n- files: { "relative/path.ts": "full file contents", ... }\n- summary: what was built\n- verificationSteps: ["npm run typecheck", ...]\n- createdAt: current ISO-8601 timestamp`;
+  const userPrompt = `Implement the following TechSpec. After generating all files, \nrun runTypeCheck and runLint to verify. Fix any errors before producing the final output.\n\nTechSpec:\n${specPayload}\n\nOutput a CodeArtifact JSON object with:\n- id: a unique nanoid\n- specId: "${spec.id}"\n- files: { "relative/path.ts": "full file contents", ... }\n- summary: what was built\n- verificationSteps: ["npm run typecheck", ...]\n- createdAt: current ISO-8601 timestamp`;
 
   const { text } = await generateText({
     model: agenticEngineer.model,
+    maxRetries: 3,
     ...(agenticEngineer.maxSteps !== undefined ? { maxSteps: agenticEngineer.maxSteps } : {}),
     tools: executorTools,
     system: systemPrompt,

@@ -16,7 +16,7 @@ import { polisherTools } from "../../../.agentic/tools/index.js";
 import type { AuditReport, CodeArtifact, PolishedArtifact } from "../../../docs/schema/entities.js";
 import { indexDocuments } from "../context/indexer.js";
 import { formatAsContext, retrieveMulti } from "../context/retriever.js";
-import { parseCodeArtifact } from "../guardrails/schema-validator.js";
+import { parseCodeArtifactWithRetry } from "../guardrails/schema-validator.js";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -55,12 +55,8 @@ export async function polishOutput(
         .map((f) => `- [${f.severity.toUpperCase()}] ${f.category}: ${f.description}`)
         .join("\n")}`;
 
-  const { text } = await generateText({
-    model: vibeEngineer.model,
-    ...(vibeEngineer.maxSteps !== undefined ? { maxSteps: vibeEngineer.maxSteps } : {}),
-    tools: polisherTools,
-    system: `${vibeEngineer.systemPrompt}\n\n${context}`,
-    prompt: `Polish the following code artifact to meet the Enterprise Quality Bar.
+  const systemPrompt = `${vibeEngineer.systemPrompt}\n\n${context}`;
+  const userPrompt = `Polish the following code artifact to meet the Enterprise Quality Bar.
 
 Audit status: ${auditSummary}
 
@@ -71,24 +67,29 @@ Produce a polished CodeArtifact JSON with improved file contents.
 If this artifact exemplifies a reusable pattern, also include:
   "nominateAsGolden": true,
   "goldenTitle": "<descriptive title>",
-  "goldenTags": ["tag1", "tag2"]`,
+  "goldenTags": ["tag1", "tag2"]`;
+
+  const { text } = await generateText({
+    model: vibeEngineer.model,
+    maxRetries: 3,
+    ...(vibeEngineer.maxSteps !== undefined ? { maxSteps: vibeEngineer.maxSteps } : {}),
+    tools: polisherTools,
+    system: systemPrompt,
+    prompt: userPrompt,
   });
 
-  // ── Stage 5c: Validate at boundary ────────────────────────────────────────
-  const polished = parseCodeArtifact(text);
+  // ── Stage 5c: Validate at boundary (with self-correction) ─────────────────
+  const polished = await parseCodeArtifactWithRetry(text, {
+    model: vibeEngineer.model,
+    systemPrompt,
+    originalPrompt: userPrompt,
+  });
 
-  // ── Stage 5d: Optional golden-example nomination ──────────────────────────
-  // The schema doesn't include golden fields, so we read from raw JSON
-  let rawParsed: Record<string, unknown> = {};
-  try {
-    rawParsed = JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    // Ignore parse errors — polished artifact is already validated above
-  }
-
-  if (rawParsed["nominateAsGolden"] === true) {
-    const goldenTitle = (rawParsed["goldenTitle"] as string | undefined) ?? polished.summary;
-    const goldenTags = (rawParsed["goldenTags"] as string[] | undefined) ?? [];
+  // ── Stage 5d: Optional golden-example nomination ───────────────────────
+  // Golden fields are now typed on CodeArtifact (schema-evolution O7 / F3)
+  if (polished.nominateAsGolden === true) {
+    const goldenTitle = polished.goldenTitle ?? polished.summary;
+    const goldenTags = polished.goldenTags ?? [];
 
     await indexDocuments([
       {
